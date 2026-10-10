@@ -6,8 +6,9 @@ import { AssistantMessageComponent, ToolExecutionComponent, VERSION } from "@ear
  *
  * Thinking: while a thinking run streams, pi renders it normally (full text,
  * live). The moment a run settles — a text/tool block follows it in the
- * message, or the message finishes — spotlight folds it to a "Thought" line
- * with a 3-line glimpse of what the reasoning was about. Click the line to
+ * message, or the message finishes — spotlight folds it to a 3-line glimpse
+ * of the reasoning (no label). The first glimpse line replaces the stock
+ * label line, keeping its styling and the click target — click it to
  * re-expand the full run; runs you expand are never re-folded.
  *
  * Tools: pi's default is rows collapsed. Spotlight inverts that for the
@@ -188,10 +189,12 @@ export default function spotlight(pi: ExtensionAPI): void {
 		}
 	};
 
-	// Collapsed runs get a 3-line glimpse of their thinking under the label.
-	// The wrapper runs after the native render (which returns a fresh array),
-	// finds each collapsed label line, and splices the preview after it. The
-	// k-th label line maps to the k-th collapsed run, in content order.
+	// Collapsed runs render as a 3-line glimpse of the thinking itself. The
+	// wrapper runs after the native render (which returns a fresh array),
+	// finds each collapsed label line, replaces it with the first glimpse
+	// line (same styling, keeps the click target for re-expand), and splices
+	// the remaining glimpse lines after it. The k-th label line maps to the
+	// k-th collapsed run, in content order.
 	const wrapRender = (): void => {
 		try {
 			if (!proto || typeof proto.render !== "function") return;
@@ -214,8 +217,9 @@ export default function spotlight(pi: ExtensionAPI): void {
 									for (let i = 0; i < out.length && k < runs.length; i++) {
 										if (stripAnsi(out[i]).trim() !== label.trim()) continue;
 										const preview = buildPreview(runs[k].text, width, out[i], label);
-										out.splice(i + 1, 0, ...preview);
-										i += preview.length;
+										out[i] = preview[0]; // first glimpse line takes the label's place
+										out.splice(i + 1, 0, ...preview.slice(1));
+										i += preview.length - 1;
 										k++;
 									}
 									return out;
