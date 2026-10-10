@@ -17,7 +17,8 @@ a glance what it was about (no "Thought" label).
 
 **Tools**
 - pi's default is collapsed tool rows. Spotlight expands a row the moment its execution starts
-  (full live output), then collapses it to a single header line when the result lands.
+  (full live output), then collapses it to a single header line when the result lands —
+  including the `edit` tool's diff, which pi renders inside the call box.
 - Click the row or press Ctrl+O to re-expand; rows you touch are never re-folded.
 - If you globally expand with Ctrl+O, spotlight backs off and stock behavior runs.
 - Failed rows stay open so you can see the error; resumed history renders like stock pi.
