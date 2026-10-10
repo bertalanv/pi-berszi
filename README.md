@@ -3,16 +3,16 @@
 Display-only extension for [pi](https://github.com/badlogic/pi-mono) that keeps your scrollback
 compact: **active** thinking and tool calls render fully and live; the moment they finish they
 fold to a **single line** — thinking keeps a 3-line glimpse of the reasoning so you can tell at
-a glance what it was about.
+a glance what it was about (no "Thought" label).
 
 ## Behavior
 
 **Thinking**
 - While a thinking run streams, pi renders it normally (full text, live).
 - The moment a run settles (a text/tool block follows it, or the message finishes), it folds to
-  a `Thought` line with a 3-line glimpse of the reasoning, so you can tell at a glance what it
-  was about.
-- Click the line to re-expand that run; runs you expand are never re-folded.
+  a 3-line glimpse of the reasoning — the first lines of the thinking itself, no "Thought"
+  label. The first glimpse line is clickable to re-expand the full run.
+- Runs you expand are never re-folded.
 - Honors the native Ctrl+T (`hideThinkingBlock`): with it on, spotlight steps back.
 
 **Tools**
