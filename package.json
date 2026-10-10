@@ -1,0 +1,11 @@
+{
+	"name": "pi-spotlight",
+	"version": "0.1.0",
+	"description": "Pi extension: live thinking and tool rows that fold to a single line when done",
+	"keywords": [
+		"pi-package",
+		"pi-coding-agent",
+		"extension"
+	],
+	"license": "MIT"
+}
