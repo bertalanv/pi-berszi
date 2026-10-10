@@ -295,6 +295,7 @@ export default function spotlight(pi: ExtensionAPI): void {
 		hideComponent?: boolean;
 		toolDefinition?: { renderShell?: string };
 		contentBox?: { children: unknown[]; removeChild(component: unknown): void };
+		selfRenderContainer?: { children: unknown[]; removeChild(component: unknown): void };
 		imageComponents?: unknown[];
 		imageSpacers?: unknown[];
 		setExpanded(expanded: boolean): void;
@@ -380,19 +381,29 @@ export default function spotlight(pi: ExtensionAPI): void {
 	const wrappedToolDisplay = function (this: ToolRow) {
 		origToolDisplay.call(this);
 		try {
+			// default-shell tools render into contentBox; self-shell tools (edit)
+			// render into selfRenderContainer — same shape (call region first,
+			// result region after), so the same strip works for both.
+			const box = this.toolDefinition?.renderShell === "self" ? this.selfRenderContainer : this.contentBox;
 			if (
 				this.toolDefinition &&
-				(this.toolDefinition.renderShell ?? "default") !== "self" &&
+				box &&
 				!this.hideComponent &&
 				this.expanded !== true &&
 				this.isPartial !== true &&
 				this.result &&
 				!this.result.isError
 			) {
-				const box = this.contentBox;
-				if (box) {
-					while (box.children.length > 1) {
-						box.removeChild(box.children[box.children.length - 1]);
+				while (box.children.length > 1) {
+					box.removeChild(box.children[box.children.length - 1]);
+				}
+				// the edit tool's self-shell renders the diff INSIDE the call Box
+			// (header Text + Spacer + diff Text) — strip it to the header line.
+				// Other tools' call regions are single Texts (children undefined): no-op.
+				const callBox = (box.children[0] as { child?: { children?: unknown[]; removeChild(component: unknown): void } } | undefined)?.child;
+				if (callBox && Array.isArray(callBox.children)) {
+					while (callBox.children.length > 1) {
+						callBox.removeChild(callBox.children[callBox.children.length - 1]);
 					}
 				}
 				for (const img of this.imageComponents ?? []) this.removeChild(img);
