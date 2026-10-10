@@ -17,9 +17,10 @@ import { AssistantMessageComponent, ToolExecutionComponent, VERSION } from "@ear
  * compact header (`⏺ bash · 0.3s`, `⏺ read <path>`; the full command comes
  * back on re-expand). Click the row or press Ctrl+O to re-expand; rows you
  * touch are never re-folded. If you globally expand with Ctrl+O, spotlight
- * backs off and lets stock behavior run. Failed rows stay open so you can
- * see what went wrong; resumed history renders exactly like stock pi. The
- * edit tool (self-shell) is left native: its diff stays visible.
+ * backs off and lets stock behavior run. Failed rows compact the same way
+ * (with a ✗ marker); click them to see the error. Resumed history renders
+ * through the same rules. The edit tool (self-shell) is left native: its
+ * diff stays visible.
  *
  * Display-only: the session file, model context, and compaction are never
  * touched. The implementation is a guarded wrapper around
@@ -138,16 +139,17 @@ function formatDuration(ms: number | undefined): string {
  * call line is replaced by this while the row is settled; re-expanding
  * restores the native header (see the updateDisplay wrap).
  */
-function shortCallText(toolName: string, args: unknown, durationMs: number | undefined, cwd: string | undefined): string {
+function shortCallText(toolName: string, args: unknown, durationMs: number | undefined, cwd: string | undefined, isError: boolean): string {
+	const mark = isError ? " ✗" : "";
 	const a = (args ?? {}) as Record<string, unknown>;
 	const rawPath = [a.path, a.file_path, a.notebook_path].find((v) => typeof v === "string" && v !== "" && v !== ".");
 	if (typeof rawPath === "string") {
 		let p = rawPath;
 		if (typeof cwd === "string" && cwd && p.startsWith(cwd + "/")) p = p.slice(cwd.length + 1);
-		return `⏺ ${toolName} ${p}`;
+		return `⏺ ${toolName} ${p}${mark}`;
 	}
 	const t = formatDuration(durationMs);
-	return t ? `⏺ ${toolName} · ${t}` : `⏺ ${toolName}`;
+	return `⏺ ${toolName}${t ? ` · ${t}` : ""}${mark}`;
 }
 
 export default function spotlight(pi: ExtensionAPI): void {
@@ -392,7 +394,7 @@ export default function spotlight(pi: ExtensionAPI): void {
 			if (isPartial !== true) {
 				const st = ensureToolState(this);
 				st.windowOpen = false;
-				if (st.owned && !st.touched && this.expanded === true && !this.result?.isError) {
+				if (st.owned && !st.touched && this.expanded === true) {
 					toolDepth++;
 					try {
 						this.setExpanded(false);
@@ -422,8 +424,7 @@ export default function spotlight(pi: ExtensionAPI): void {
 				!this.hideComponent &&
 				this.expanded !== true &&
 				this.isPartial !== true &&
-				!!this.result &&
-				!this.result.isError;
+				!!this.result;
 			const call = (this.contentBox?.children[0] as { child?: unknown } | undefined)?.child as
 				| { text?: unknown; setText?(text: string): void; constructor?: { name?: string } }
 				| undefined;
@@ -443,7 +444,7 @@ export default function spotlight(pi: ExtensionAPI): void {
 				// components (write's Text subclass) keep their preview, just
 				// like edit's diff. constructor.name is stable in pi's dist.
 				if (call && call.constructor?.name === "Text" && typeof call.text === "string" && typeof call.setText === "function") {
-					const short = shortCallText(this.toolName ?? "", this.args, this.result?.durationMs, this.cwd);
+					const short = shortCallText(this.toolName ?? "", this.args, this.result?.durationMs, this.cwd, this.result?.isError === true);
 					if (call.text !== short) {
 						shortenedCalls.set(call, call.text);
 						call.setText(short);

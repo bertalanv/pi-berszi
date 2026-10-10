@@ -24,7 +24,8 @@ a glance what it was about (no "Thought" label).
   visible. `write` keeps its content preview the same way.
 - Click the row or press Ctrl+O to re-expand; rows you touch are never re-folded.
 - If you globally expand with Ctrl+O, spotlight backs off and stock behavior runs.
-- Failed rows stay open so you can see the error; resumed history renders like stock pi.
+- Failed rows compact the same way, with a `✗` marker (`⏺ bash · 0.3s ✗`); click one to see
+  the command and error. Resumed history compacts through the same rules.
 
 Display-only: the session file, model context, and compaction are never touched.
 
