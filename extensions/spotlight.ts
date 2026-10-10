@@ -14,10 +14,11 @@ import { AssistantMessageComponent, ToolExecutionComponent, VERSION } from "@ear
  * Tools: pi's default is rows collapsed. Spotlight inverts that for the
  * duration of a run: the moment a tool starts, its row expands and streams
  * live output; the moment the result lands, the row collapses to a single
- * header line. Click the row or press Ctrl+O to re-expand; rows you touch
- * are never re-folded. If you globally expand with Ctrl+O, spotlight backs
- * off and lets stock behavior run. Failed rows stay open so you can see
- * what went wrong; resumed history renders exactly like stock pi. The
+ * compact header (`⏺ bash · 0.3s`, `⏺ read <path>`; the full command comes
+ * back on re-expand). Click the row or press Ctrl+O to re-expand; rows you
+ * touch are never re-folded. If you globally expand with Ctrl+O, spotlight
+ * backs off and lets stock behavior run. Failed rows stay open so you can
+ * see what went wrong; resumed history renders exactly like stock pi. The
  * edit tool (self-shell) is left native: its diff stays visible.
  *
  * Display-only: the session file, model context, and compaction are never
@@ -120,6 +121,33 @@ function buildPreview(text: string, width: number, labelLine: string, labelText:
 	const openers = pre.replace(/^\s+/, "");
 	const budget = Math.max(10, width - ws.length);
 	return lines.map((l) => ws + openers + (l.length > budget ? l.slice(0, budget - 1) + "…" : l) + post);
+}
+
+function formatDuration(ms: number | undefined): string {
+	if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return "";
+	if (ms < 1000) return `${(ms / 1000).toFixed(1)}s`;
+	if (ms < 60000) return `${Math.round(ms / 1000)}s`;
+	const m = Math.floor(ms / 60000);
+	const s = Math.round((ms % 60000) / 1000);
+	return `${m}m ${String(s).padStart(2, "0")}s`;
+}
+
+/**
+ * Compact settled header: `⏺ read <path>` for file tools, else
+ * `⏺ bash · 0.3s`. Commands are not what the user reads, so the long
+ * call line is replaced by this while the row is settled; re-expanding
+ * restores the native header (see the updateDisplay wrap).
+ */
+function shortCallText(toolName: string, args: unknown, durationMs: number | undefined, cwd: string | undefined): string {
+	const a = (args ?? {}) as Record<string, unknown>;
+	const rawPath = [a.path, a.file_path, a.notebook_path].find((v) => typeof v === "string" && v !== "" && v !== ".");
+	if (typeof rawPath === "string") {
+		let p = rawPath;
+		if (typeof cwd === "string" && cwd && p.startsWith(cwd + "/")) p = p.slice(cwd.length + 1);
+		return `⏺ ${toolName} ${p}`;
+	}
+	const t = formatDuration(durationMs);
+	return t ? `⏺ ${toolName} · ${t}` : `⏺ ${toolName}`;
 }
 
 export default function spotlight(pi: ExtensionAPI): void {
@@ -292,8 +320,11 @@ export default function spotlight(pi: ExtensionAPI): void {
 	interface ToolRow {
 		expanded?: boolean;
 		isPartial?: boolean;
-		result?: { isError?: boolean };
+		result?: { isError?: boolean; durationMs?: number };
 		hideComponent?: boolean;
+		toolName?: string;
+		args?: unknown;
+		cwd?: string;
 		toolDefinition?: { renderShell?: string };
 		contentBox?: { children: unknown[]; removeChild(component: unknown): void };
 		imageComponents?: unknown[];
@@ -307,6 +338,8 @@ export default function spotlight(pi: ExtensionAPI): void {
 		owned: boolean; // spotlight expanded this row itself
 	}
 	const toolRowState = new WeakMap<ToolRow, ToolRowState>();
+	// call Text component → its native header, while the row is settled
+	const shortenedCalls = new WeakMap<object, string>();
 	let toolDepth = 0; // >0 while spotlight itself is calling setExpanded
 
 	const ensureToolState = (row: ToolRow): ToolRowState => {
@@ -383,15 +416,18 @@ export default function spotlight(pi: ExtensionAPI): void {
 		try {
 			// self-shell tools (edit) are left native: the edit tool renders its
 			// diff inside the call box, and seeing the diff is the point of the row.
-			if (
-				this.toolDefinition &&
+			const settled =
+				!!this.toolDefinition &&
 				(this.toolDefinition.renderShell ?? "default") !== "self" &&
 				!this.hideComponent &&
 				this.expanded !== true &&
 				this.isPartial !== true &&
-				this.result &&
-				!this.result.isError
-			) {
+				!!this.result &&
+				!this.result.isError;
+			const call = (this.contentBox?.children[0] as { child?: unknown } | undefined)?.child as
+				| { text?: unknown; setText?(text: string): void; constructor?: { name?: string } }
+				| undefined;
+			if (settled) {
 				const box = this.contentBox;
 				if (box) {
 					while (box.children.length > 1) {
@@ -402,6 +438,24 @@ export default function spotlight(pi: ExtensionAPI): void {
 				for (const sp of this.imageSpacers ?? []) this.removeChild(sp);
 				this.imageComponents = [];
 				this.imageSpacers = [];
+				// swap the long call line for the compact header — plain Text call
+				// components only (bash/read/grep/...); content-bearing call
+				// components (write's Text subclass) keep their preview, just
+				// like edit's diff. constructor.name is stable in pi's dist.
+				if (call && call.constructor?.name === "Text" && typeof call.text === "string" && typeof call.setText === "function") {
+					const short = shortCallText(this.toolName ?? "", this.args, this.result?.durationMs, this.cwd);
+					if (call.text !== short) {
+						shortenedCalls.set(call, call.text);
+						call.setText(short);
+					}
+				}
+			} else if (call && typeof call.text === "string") {
+				// not settled (expanded / live / error): restore the native header
+				const original = shortenedCalls.get(call);
+				if (original !== undefined) {
+					if (call.text !== original && typeof call.setText === "function") call.setText(original);
+					shortenedCalls.delete(call);
+				}
 			}
 		} catch {
 			// fail-open: stock rendering
