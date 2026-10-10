@@ -1,6 +1,6 @@
 {
 	"name": "pi-spotlight",
-	"version": "0.3.1",
+	"version": "0.4.0",
 	"description": "Pi extension: live thinking and tool rows that fold to a single line when done",
 	"keywords": [
 		"pi-package",
