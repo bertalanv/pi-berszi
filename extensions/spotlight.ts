@@ -6,9 +6,9 @@ import { AssistantMessageComponent, ToolExecutionComponent, VERSION } from "@ear
  *
  * Thinking: while a thinking run streams, pi renders it normally (full text,
  * live). The moment a run settles — a text/tool block follows it in the
- * message, or the message finishes — spotlight folds it to a single "Thought"
- * line. Click the line to re-expand that run; runs you expand are never
- * re-folded.
+ * message, or the message finishes — spotlight folds it to a "Thought" line
+ * with a 3-line glimpse of what the reasoning was about. Click the line to
+ * re-expand the full run; runs you expand are never re-folded.
  *
  * Tools: pi's default is rows collapsed. Spotlight inverts that for the
  * duration of a run: the moment a tool starts, its row expands and streams
@@ -40,6 +40,8 @@ const SETTLED_LABEL = "Thought";
 const TESTED_VERSION = "1.1";
 const PATCHED = Symbol.for("spotlight.updateContent.patches");
 const ORIGINAL = Symbol.for("spotlight.updateContent.original");
+const RENDER_PATCHED = Symbol.for("spotlight.render.patches");
+const RENDER_ORIGINAL = Symbol.for("spotlight.render.original");
 const TOOLS_PATCHED = Symbol.for("spotlight.updateResult.patched");
 const TOOLS_ORIGINAL = Symbol.for("spotlight.updateResult.original");
 const DISABLED = Symbol.for("spotlight.disabled");
@@ -54,6 +56,7 @@ interface ContentBlock {
 interface RunInfo {
 	index: number;
 	settled: boolean;
+	text: string;
 }
 
 /**
@@ -78,22 +81,48 @@ function thinkingRuns(content: unknown, isStreaming: boolean): RunInfo[] {
 			continue;
 		}
 		let hasText = false;
+		const blocks: string[] = [];
 		while (i < content.length) {
 			const b = content[i] as ContentBlock;
 			if (!b || b.type !== "thinking") break;
-			if (typeof b.thinking === "string" && b.thinking.trim()) hasText = true;
+			if (typeof b.thinking === "string" && b.thinking.trim()) {
+				hasText = true;
+				blocks.push(b.thinking.trim());
+			}
 			i++;
 		}
 		if (!hasText) continue; // native skips empty groups without numbering them
 		const followedByBlock = i < content.length;
-		runs.push({ index: runIndex++, settled: followedByBlock || !isStreaming });
+		runs.push({ index: runIndex++, settled: followedByBlock || !isStreaming, text: blocks.join("\n\n") });
 	}
 	return runs;
 }
 
+const stripAnsi = (line: string): string =>
+	line.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
+
+/**
+ * Glimpse lines for a folded run: the first 3 non-empty thinking lines,
+ * truncated to the terminal width. Reuses the collapsed label line's own
+ * ANSI styling (theme + NO_COLOR safe: plain text when the label has none).
+ */
+function buildPreview(text: string, width: number, labelLine: string, labelText: string): string[] {
+	const lines = text.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 3);
+	if (!lines.length) return [];
+	// trim trailing padding spaces so they are not baked into every preview line
+	const styled = labelLine.replace(/\s+$/, "");
+	const idx = styled.indexOf(labelText);
+	const pre = idx >= 0 ? styled.slice(0, idx) : "";
+	const post = idx >= 0 ? styled.slice(idx + labelText.length) : "";
+	const ws = pre.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
+	const openers = pre.replace(/^\s+/, "");
+	const budget = Math.max(10, width - ws.length);
+	return lines.map((l) => ws + openers + (l.length > budget ? l.slice(0, budget - 1) + "…" : l) + post);
+}
+
 export default function spotlight(pi: ExtensionAPI): void {
 	const proto = (AssistantMessageComponent as unknown as {
-		prototype?: { updateContent?: unknown };
+		prototype?: { updateContent?: unknown; render?: unknown };
 	})?.prototype;
 	const g = globalThis as Record<symbol, unknown>;
 
@@ -111,7 +140,10 @@ export default function spotlight(pi: ExtensionAPI): void {
 	// stock method installed by an earlier one.
 	const patch = (): boolean => {
 		if (!proto || typeof proto.updateContent !== "function") return false;
-		if ((proto.updateContent as { [PATCHED]?: boolean })[PATCHED]) return true; // already active
+		if ((proto.updateContent as { [PATCHED]?: boolean })[PATCHED]) {
+			wrapRender(); // render wrap may be missing from an earlier partial run
+			return true; // already active
+		}
 		const original = proto.updateContent as (message: unknown, isStreaming?: boolean) => void;
 		const wrapped = function (this: Record<string, unknown>, message: unknown, isStreaming?: boolean) {
 			try {
@@ -149,20 +181,75 @@ export default function spotlight(pi: ExtensionAPI): void {
 			(wrapped as { [PATCHED]?: boolean })[PATCHED] = true;
 			proto.updateContent = wrapped as unknown as typeof proto.updateContent;
 			g[ORIGINAL] = original;
+			wrapRender();
 			return true;
 		} catch {
 			return false;
 		}
 	};
 
+	// Collapsed runs get a 3-line glimpse of their thinking under the label.
+	// The wrapper runs after the native render (which returns a fresh array),
+	// finds each collapsed label line, and splices the preview after it. The
+	// k-th label line maps to the k-th collapsed run, in content order.
+	const wrapRender = (): void => {
+		try {
+			if (!proto || typeof proto.render !== "function") return;
+			if ((proto.render as { [RENDER_PATCHED]?: boolean })[RENDER_PATCHED]) return; // already active
+			const original = proto.render as (this: Record<string, unknown>, width: number) => string[];
+			const wrapped = function (this: Record<string, unknown>, width: number) {
+				const lines = original.call(this, width);
+				try {
+					if (this.hideThinkingBlock === false && lines.length > 0) {
+						const overrides = this.thinkingVisibilityOverrides as unknown;
+						const message = this.lastMessage as { content?: unknown } | undefined;
+						const label = typeof this.hiddenThinkingLabel === "string" ? this.hiddenThinkingLabel : DEFAULT_LABEL;
+							if (overrides instanceof Map && message && label.trim()) {
+								const runs = thinkingRuns(message.content, this.isStreaming === true).filter(
+								(r) => r.text.trim() && overrides.get(r.index) === true,
+								);
+								if (runs.length) {
+									const out = [...lines];
+									let k = 0;
+									for (let i = 0; i < out.length && k < runs.length; i++) {
+										if (stripAnsi(out[i]).trim() !== label.trim()) continue;
+										const preview = buildPreview(runs[k].text, width, out[i], label);
+										out.splice(i + 1, 0, ...preview);
+										i += preview.length;
+										k++;
+									}
+									return out;
+								}
+								}
+							}
+						} catch {
+						// fail-open: stock lines
+						}
+						return lines;
+					};
+				(wrapped as { [RENDER_PATCHED]?: boolean })[RENDER_PATCHED] = true;
+				proto.render = wrapped as unknown as typeof proto.render;
+				g[RENDER_ORIGINAL] = original;
+			} catch {
+				// fail-open: label-only fold keeps working
+			}
+		};
+
 	const unpatch = (): boolean => {
 		const original = g[ORIGINAL] as ((message: unknown, isStreaming?: boolean) => void) | undefined;
+		const originalRender = g[RENDER_ORIGINAL] as ((this: Record<string, unknown>, width: number) => string[]) | undefined;
+		let restored = false;
 		if (proto && typeof original === "function" && (proto.updateContent as { [PATCHED]?: boolean })?.[PATCHED]) {
 			proto.updateContent = original as typeof proto.updateContent;
 			delete g[ORIGINAL];
-			return true;
+			restored = true;
 		}
-		return false;
+		if (proto && typeof originalRender === "function" && (proto.render as { [RENDER_PATCHED]?: boolean })?.[RENDER_PATCHED]) {
+			proto.render = originalRender as typeof proto.render;
+			delete g[RENDER_ORIGINAL];
+			restored = true;
+		}
+		return restored;
 	};
 
 	// ── Tools ──────────────────────────────────────────────────────────────
