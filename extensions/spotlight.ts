@@ -17,7 +17,8 @@ import { AssistantMessageComponent, ToolExecutionComponent, VERSION } from "@ear
  * header line. Click the row or press Ctrl+O to re-expand; rows you touch
  * are never re-folded. If you globally expand with Ctrl+O, spotlight backs
  * off and lets stock behavior run. Failed rows stay open so you can see
- * what went wrong; resumed history renders exactly like stock pi.
+ * what went wrong; resumed history renders exactly like stock pi. The
+ * edit tool (self-shell) is left native: its diff stays visible.
  *
  * Display-only: the session file, model context, and compaction are never
  * touched. The implementation is a guarded wrapper around
@@ -295,7 +296,6 @@ export default function spotlight(pi: ExtensionAPI): void {
 		hideComponent?: boolean;
 		toolDefinition?: { renderShell?: string };
 		contentBox?: { children: unknown[]; removeChild(component: unknown): void };
-		selfRenderContainer?: { children: unknown[]; removeChild(component: unknown): void };
 		imageComponents?: unknown[];
 		imageSpacers?: unknown[];
 		setExpanded(expanded: boolean): void;
@@ -381,29 +381,21 @@ export default function spotlight(pi: ExtensionAPI): void {
 	const wrappedToolDisplay = function (this: ToolRow) {
 		origToolDisplay.call(this);
 		try {
-			// default-shell tools render into contentBox; self-shell tools (edit)
-			// render into selfRenderContainer — same shape (call region first,
-			// result region after), so the same strip works for both.
-			const box = this.toolDefinition?.renderShell === "self" ? this.selfRenderContainer : this.contentBox;
+			// self-shell tools (edit) are left native: the edit tool renders its
+			// diff inside the call box, and seeing the diff is the point of the row.
 			if (
 				this.toolDefinition &&
-				box &&
+				(this.toolDefinition.renderShell ?? "default") !== "self" &&
 				!this.hideComponent &&
 				this.expanded !== true &&
 				this.isPartial !== true &&
 				this.result &&
 				!this.result.isError
 			) {
-				while (box.children.length > 1) {
-					box.removeChild(box.children[box.children.length - 1]);
-				}
-				// the edit tool's self-shell renders the diff INSIDE the call Box
-			// (header Text + Spacer + diff Text) — strip it to the header line.
-				// Other tools' call regions are single Texts (children undefined): no-op.
-				const callBox = (box.children[0] as { child?: { children?: unknown[]; removeChild(component: unknown): void } } | undefined)?.child;
-				if (callBox && Array.isArray(callBox.children)) {
-					while (callBox.children.length > 1) {
-						callBox.removeChild(callBox.children[callBox.children.length - 1]);
+				const box = this.contentBox;
+				if (box) {
+					while (box.children.length > 1) {
+						box.removeChild(box.children[box.children.length - 1]);
 					}
 				}
 				for (const img of this.imageComponents ?? []) this.removeChild(img);
