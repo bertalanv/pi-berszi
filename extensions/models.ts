@@ -23,22 +23,38 @@ const VLLM_API_KEY = "EMPTY";
 // models.json expresses `compat` at provider level; the extension API takes
 // it per model, so it is applied to each entry.
 const VLLM_COMPAT = { supportsDeveloperRole: false };
+// Thinking policy for the local Qwen models: they run at xhigh and only at
+// xhigh. pi exposes a level only if it is supported: with reasoning: true the
+// base levels (minimal..high) are on by default and xhigh/max require an
+// explicit map entry, so null the base levels and map xhigh to the provider
+// value the vLLM server accepts. Supported set = off + xhigh; any session
+// thinking level clamps to xhigh on these models. pi sends the mapped value
+// as reasoning_effort (openai-completions, supportsReasoningEffort auto-detected).
+const VLLM_THINKING = {
+	minimal: null,
+	low: null,
+	medium: null,
+	high: null,
+	xhigh: "xhigh",
+};
 const VLLM_MODELS: ProviderModelConfig[] = [
 	{
 		id: "heavy/Qwen3.8-27B-FP8",
 		name: "Qwen3.8-27B dense (local, FP8)",
 		input: ["text"],
-		reasoning: false,
+		reasoning: true,
+		thinkingLevelMap: VLLM_THINKING,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 216064,
-		maxTokens: 65536,
+		maxTokens: 24576,
 		compat: VLLM_COMPAT,
 	},
 	{
 		id: "heavy/Qwen3.8-27B-FP8-FULL",
 		name: "Qwen3.8-27B dense (local, FP8-FULL)",
 		input: ["text"],
-		reasoning: false,
+		reasoning: true,
+		thinkingLevelMap: VLLM_THINKING,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 262144,
 		maxTokens: 24576,
@@ -48,7 +64,8 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 		id: "heavy/Qwen3.8-27B-FP8-VISION",
 		name: "Qwen3.8-27B dense (local, FP8-VISION)",
 		input: ["text", "image"],
-		reasoning: false,
+		reasoning: true,
+		thinkingLevelMap: VLLM_THINKING,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 262144,
 		maxTokens: 24576,

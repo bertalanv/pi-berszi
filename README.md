@@ -37,9 +37,13 @@ change it here, commit, and `pi update --extensions` on the other machines.
 
   | model | contextWindow | maxTokens | input |
   |---|---|---|---|
-  | `heavy/Qwen3.8-27B-FP8` | 216064 | 65536 | text |
+  | `heavy/Qwen3.8-27B-FP8` | 216064 | 24576 | text |
   | `heavy/Qwen3.8-27B-FP8-FULL` | 262144 | 24576 | text |
   | `heavy/Qwen3.8-27B-FP8-VISION` | 262144 | 24576 | text + image |
+
+  All three run thinking at **xhigh** — xhigh is the only thinking level they expose,
+  so any session thinking level clamps to it; pi sends `reasoning_effort: "xhigh"`
+  to the vLLM server.
 
 To change what the extension ships, edit `extensions/models.ts`. If a local `models.json`
 also defines the provider under the same ID, both layers compose and identical entries give
