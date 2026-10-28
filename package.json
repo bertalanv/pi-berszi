@@ -1,7 +1,7 @@
 {
 	"name": "pi-berszi",
-	"version": "1.1.0",
-	"description": "Personal pi setup: the spotlight display fold, bundled model config, and pi-exa web search, in one install",
+	"version": "1.2.0",
+	"description": "Personal pi setup: the spotlight display fold, bundled model config, pi-exa web search, and pi-subagents, in one install",
 	"keywords": [
 		"pi-package",
 		"pi-coding-agent",
@@ -11,10 +11,12 @@
 	"pi": {
 		"extensions": [
 			"./extensions/index.ts",
-			"./node_modules/pi-exa"
+			"./node_modules/pi-exa",
+			"./node_modules/pi-subagents"
 		]
 	},
 	"dependencies": {
-		"pi-exa": "0.6.1"
+		"pi-exa": "0.6.1",
+		"pi-subagents": "0.83.1"
 	}
 }
