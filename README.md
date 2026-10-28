@@ -2,8 +2,10 @@
 
 Personal [pi](https://github.com/badlogic/pi-mono) setup in one package: everything you tweak
 on one machine, carried to all of them — including [pi-exa](https://github.com/junnjiee/pi-exa)
-(web search) and [pi-subagents](https://github.com/nicobailon/pi-subagents) (subagent
-delegation), which this package pins and pulls in automatically. Install once per machine;
+(web search), [pi-subagents](https://github.com/nicobailon/pi-subagents) (subagent
+delegation) and [pi-claude-bridge](https://www.npmjs.com/package/pi-claude-bridge)
+(Claude Code as a model provider), which this package pins and pulls in automatically.
+Install once per machine;
 change it here, commit, and `pi update --extensions` on the other machines.
 
 ## Features
@@ -92,7 +94,7 @@ rendering; in non-interactive/piped runs there is no terminal, so it stays silen
 > "audible bell" / "visual bell" setting in your terminal (and your SSH client forwards
 > the BEL byte automatically — nothing to configure).
 
-## Bundled: pi-exa (web search) and pi-subagents (delegation)
+## Bundled: pi-exa (web search), pi-subagents (delegation), pi-claude-bridge (provider)
 
 pi-berszi ships [pi-exa](https://github.com/junnjiee/pi-exa) as a **pinned npm dependency**
 (currently `0.6.1` in `package.json`), so you never install it separately. It adds Exa web
@@ -104,10 +106,19 @@ It also ships [pi-subagents](https://github.com/nicobailon/pi-subagents) (curren
 `0.83.1` in `package.json`), so the subagent delegation tools, their skills, and prompts
 load with the same install — no separate `npm:pi-subagents` package entry needed.
 
+It also ships [pi-claude-bridge](https://www.npmjs.com/package/pi-claude-bridge)
+(currently `0.9.3` in `package.json`): **Claude Code via the Agent SDK as a model
+provider** — pick `claude-bridge/claude-opus-…`, `claude-bridge/claude-sonnet-…` etc. in
+`/model`, with all tool calls still flowing through pi's TUI (Claude Code's 120s bash
+timeout, skills forwarded to Claude, mid-turn steering at the next tool boundary). It uses
+your regular Claude subscription quota, like Claude Code itself. The legacy `AskClaude`
+tool stays off (deprecated; opt-in via `askClaude.enabled` in
+`~/.pi/agent/claude-bridge.json`).
+
 Updates are manual, your call:
 
 1. Check the latest version: `npm view pi-exa version` / `npm view pi-subagents version`
-   (compare with the pins in `package.json`)
+   / `npm view pi-claude-bridge version` (compare with the pins in `package.json`)
 2. If you want it: bump the pin in `package.json`, commit, push
 3. `pi update --extensions` on each machine — when the repo moves, pi re-resolves the
    dependency and the new package version is picked up automatically
@@ -151,7 +162,7 @@ Status, on/off toggles, and persistence come for free.
 ## Install / update
 
 ```bash
-pi install git:github.com/bertalanv/pi-berszi   # once, per machine — pulls in pi-exa + pi-subagents too
+pi install git:github.com/bertalanv/pi-berszi   # once, per machine — pulls in pi-exa + pi-subagents + pi-claude-bridge too
 pi update --extensions                            # after pushing changes here
 ```
 
