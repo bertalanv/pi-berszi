@@ -1,37 +1,32 @@
-import { spawn } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /**
- * spotlight — chime feature (macOS system sounds)
+ * spotlight — chime feature (terminal bell)
  *
- * Plays a short system sound at the two moments where a human is
- * actually needed, so a backgrounded pi session gets your attention:
- *   agent_settled   -> Glass  (response finished, waiting for input)
- *   ui_prompt_start -> Ping   (pi is asking a question / confirmation)
+ * Rings the terminal bell (BEL, \x07) at the two moments where a human
+ * is actually needed, so a backgrounded pi session — especially over
+ * SSH — gets your attention:
+ *   agent_settled   — the response is finished and pi waits for input
+ *   ui_prompt_start — pi is showing a blocking prompt (question / confirm / input)
  *
- * darwin-only by design: on other platforms the listeners stay
- * registered and the play call is a no-op, so the feature reads "on"
- * everywhere and simply stays silent. Sounds are the stock macOS ones
- * in /System/Library/Sounds — no assets shipped. spawn is detached,
- * unref'd and stdio-ignored: it never blocks a turn and never breaks
- * the session over a sound.
+ * The bell is the right mechanism here, not a sampled sound: over SSH a
+ * sound file played on the remote host (e.g. via afplay) is never heard
+ * by you — the only audio that reaches you is what your local terminal
+ * plays for BEL (or the title flash, depending on your terminal's
+ * settings). Locally, the bell works the same way. It is
+ * cross-platform, needs no assets, and is a single byte on the same
+ * stdout stream the TUI already owns: the terminal handles it
+ * out-of-band, so it cannot disturb frame rendering. Guarded by isTTY:
+ * in non-interactive/piped runs there is no terminal to ring, and no
+ * stray byte is written into the pipe.
  */
 
-const SOUNDS = {
-	settled: "/System/Library/Sounds/Glass.aiff",
-	prompt: "/System/Library/Sounds/Ping.aiff",
-};
-
-function chime(sound: string): void {
-	if (process.platform !== "darwin" || !sound) return;
+function chime(): void {
+	if (!process.stdout.isTTY) return; // no terminal: nothing to ring
 	try {
-		const child = spawn("afplay", [sound], {
-			detached: true,
-			stdio: "ignore",
-		});
-		child.unref();
+		process.stdout.write("\x07");
 	} catch {
-		// never break the session over a sound
+		// never break the session over a bell
 	}
 }
 
@@ -40,12 +35,12 @@ let attachedNow = false;
 
 export const chimeFeature = {
 	name: "chime",
-	description: "macOS system sounds: Glass when the agent settles, Ping when pi asks a question",
+	description: "terminal bell: rings when the agent settles, and when pi asks a question",
 	enable(pi: ExtensionAPI): boolean {
 		if (attachedNow) return true; // idempotent across toggles in one process
 		try {
-			detachFns.push(pi.on("agent_settled", () => chime(SOUNDS.settled)));
-			detachFns.push(pi.on("ui_prompt_start", () => chime(SOUNDS.prompt)));
+			detachFns.push(pi.on("agent_settled", () => chime()));
+			detachFns.push(pi.on("ui_prompt_start", () => chime()));
 			attachedNow = true;
 			return true;
 		} catch {

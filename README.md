@@ -13,7 +13,7 @@ change it here, commit, and `pi update --extensions` on the other machines.
 | `display` | the spotlight fold — active thinking and tool calls render fully and live; the moment they finish they fold to a single line (thinking keeps a 3-line glimpse of the reasoning) | on |
 | `models` | the local `vllm` provider with the Qwen models — the model config registered in-process via `pi.registerProvider()`, so no machine-local `models.json` entry is needed or written | on |
 | `exa` | the `mcpUseApiKey` flag in pi-exa's `pi-exa.json` — with it on, `web_search_exa` / `web_fetch_exa` connect to the Exa MCP with your stored key (paid tier) instead of keyless (anonymous free tier + its rate limit) | on |
-| `chime` | macOS system sounds for backgrounded sessions: **Glass** when the agent settles (waiting for your input), **Ping** when pi shows a question or confirmation. No-op on non-mac machines (reads "on", stays silent) | on |
+| `chime` | terminal bell for backgrounded/SSH sessions: rings when the agent settles (waiting for your input) and when pi shows a question or confirmation. Cross-platform, no assets; no-op in non-TTY runs | on |
 
 ### display
 
@@ -74,16 +74,23 @@ drops the cached client.
 
 ### chime
 
-Two short stock macOS sounds at the moments a human is actually needed, so a pi
-session you've backgrounded (or run over SSH) gets your attention without watching:
+A terminal bell (BEL, `\x07`) at the moments a human is actually needed, so a pi
+session you've backgrounded — especially **over SSH** — gets your attention without
+watching:
 
-- **Glass** — `agent_settled`: the response is finished and pi is waiting for your input
-- **Ping** — `ui_prompt_start`: pi is showing a blocking prompt (question / confirm / input)
+- `agent_settled` — the response is finished and pi is waiting for your input
+- `ui_prompt_start` — pi is showing a blocking prompt (question / confirm / input)
 
-Sounds are the system ones in `/System/Library/Sounds` (no assets shipped); playback is
-`afplay`, detached and unref'd, so it never blocks a turn. On non-mac platforms the
-listeners register but playback is a no-op — the feature reads "on" everywhere and simply
-stays silent.
+The bell is used deliberately instead of a sampled sound: over SSH a sound played on
+the remote host (e.g. `afplay`) is never heard by you — the only audio that reaches you
+is what your **local terminal** plays for BEL (or a title flash, per your terminal's
+settings). Locally the bell works the same way. It is a single byte on the stdout stream
+the TUI already owns, handled out-of-band by the terminal, so it cannot disturb frame
+rendering; in non-interactive/piped runs there is no terminal, so it stays silent.
+
+> Your terminal controls the actual sound/flash. If it never rings, check the
+> "audible bell" / "visual bell" setting in your terminal (and your SSH client forwards
+> the BEL byte automatically — nothing to configure).
 
 ## Bundled: pi-exa (web search) and pi-subagents (delegation)
 
