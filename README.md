@@ -1,49 +1,85 @@
-# pi-spotlight
+# pi-berszi
 
-Display-only extension for [pi](https://github.com/badlogic/pi-mono) that keeps your scrollback
-compact: **active** thinking and tool calls render fully and live; the moment they finish they
-fold to a **single line** — thinking keeps a 3-line glimpse of the reasoning so you can tell at
-a glance what it was about (no "Thought" label).
+Personal [pi](https://github.com/badlogic/pi-mono) setup in one extension: everything you tweak
+on one machine, carried to all of them. Install once per machine; change it here, commit, and
+`pi update --extensions` on the other machines.
 
-## Behavior
+## Features
 
-**Thinking**
-- While a thinking run streams, pi renders it normally (full text, live).
-- The moment a run settles (a text/tool block follows it, or the message finishes), it folds to
-  a 3-line glimpse of the reasoning — the first lines of the thinking itself, no "Thought"
-  label. The first glimpse line is clickable to re-expand the full run.
-- Runs you expand are never re-folded.
-- Honors the native Ctrl+T (`hideThinkingBlock`): with it on, spotlight steps back.
+| Feature | Carries | Default |
+|---|---|---|
+| `display` | the spotlight fold — active thinking and tool calls render fully and live; the moment they finish they fold to a single line (thinking keeps a 3-line glimpse of the reasoning) | on |
+| `models` | the local `vllm` provider with the Qwen models — the model config registered in-process via `pi.registerProvider()`, so no machine-local `models.json` entry is needed or written | on |
 
-**Tools**
-- pi's default is collapsed tool rows. Spotlight expands a row the moment its execution starts
-  (full live output), then collapses it to a single compact header when the result lands:
-  `⏺ bash · 0.3s` for command tools, `⏺ read specs/state.yaml` (path kept) for file tools.
-  Re-expanding restores the full command header.
-- The `edit` tool is intentionally left native: its diff is the point of the row, so it stays
-  visible. `write` keeps its content preview the same way.
-- Click the row or press Ctrl+O to re-expand; rows you touch are never re-folded.
-- If you globally expand with Ctrl+O, spotlight backs off and stock behavior runs.
-- Failed rows compact the same way, with a `✗` marker (`⏺ bash · 0.3s ✗`); click one to see
-  the command and error. Resumed history compacts through the same rules.
+### display
 
-Display-only: the session file, model context, and compaction are never touched.
+- **Thinking** — while a thinking run streams, pi renders it normally. The moment a run
+  settles it folds to a 3-line glimpse of the reasoning itself (no "Thought" label); the
+  first line stays clickable to re-expand the full run. Runs you expand are never re-folded.
+  Honors native Ctrl+T: with it on, spotlight steps back.
+- **Tools** — the moment a tool starts, its row expands and streams live output; the moment
+  the result lands, the row collapses to a compact header: `⏺ bash · 0.3s` for command
+  tools, `⏺ read specs/state.yaml` (path kept) for file tools. Click the row or press
+  Ctrl+O to re-expand; rows you touch are never re-folded. Failed rows compact the same
+  way, with a `✗` marker. The `edit` tool is left native: its diff is the point of the row.
+- Display-only: the session file, model context, and compaction are never touched.
 
-## Install
+### models
+
+- provider `vllm` at `http://100.116.35.7:8000/v1` (openai-completions, dummy key — the
+  local vLLM server ignores it)
+
+  | model | contextWindow | maxTokens | input |
+  |---|---|---|---|
+  | `heavy/Qwen3.8-27B-FP8` | 216064 | 65536 | text |
+  | `heavy/Qwen3.8-27B-FP8-FULL` | 262144 | 24576 | text |
+  | `heavy/Qwen3.8-27B-FP8-VISION` | 262144 | 24576 | text + image |
+
+To change what the extension ships, edit `extensions/models.ts`. If a local `models.json`
+also defines the provider under the same ID, both layers compose and identical entries give
+an identical result — the `models.json` entry can safely be dropped once this extension is
+updated everywhere.
+
+## Commands
+
+| Command | Effect |
+|---|---|
+| `/berszi` | status of all features |
+| `/berszi on` / `/berszi off` | all features |
+| `/berszi display on` \| `off` | the display fold |
+| `/berszi models on` \| `off` | the bundled models |
+
+Toggles persist to `~/.pi/agent/berszi-state.json`, so they survive restarts and
+`/reload`. Delete that file to reset to the defaults.
+
+## Add a feature
+
+1. Create `extensions/<name>.ts` exporting:
+
+   ```ts
+   import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+   export const myFeature = {
+       name: "myfeature",
+       description: "one line about what this carries",
+       enable(pi: ExtensionAPI): boolean { /* … */ return true; },
+       disable(pi: ExtensionAPI): boolean { /* … */ return true; },
+       attached(): boolean { /* … */ return true; },
+   };
+   ```
+
+2. Import it and add it to `FEATURES` in `extensions/index.ts`.
+
+Status, on/off toggles, and persistence come for free.
+
+## Install / update
 
 ```bash
-pi install git:github.com/bertalanv/pi-spotlight
+pi install git:github.com/bertalanv/pi-berszi   # once, per machine
+pi update --extensions                            # after pushing changes here
 ```
 
 Then restart pi (or `/reload`).
 
-Requires pi 1.1.0 (tested). If a future pi release changes internals, spotlight detects it,
-keeps stock behavior (fail-open), and announces the degradation instead of failing.
-
-## Usage
-
-| Command | Effect |
-|---|---|
-| `/spotlight` | status |
-| `/spotlight on` | enable (default) |
-| `/spotlight off` | restore stock behavior |
+Requires pi 1.1.0 (tested). If a future pi release changes internals, a feature that cannot
+attach keeps stock behavior (fail-open) and announces the degradation instead of failing.
