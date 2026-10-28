@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { getAgentDir, VERSION, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { displayFeature } from "./display.js";
 import { modelsFeature } from "./models.js";
+import { exaFeature } from "./exa.js";
 
 /**
  * berszi — personal pi setup bundle
@@ -18,7 +19,7 @@ import { modelsFeature } from "./models.js";
  * Commands:
  *   /berszi                  — status of all features
  *   /berszi on | off         — all features (backward-compatible default)
- *   /berszi <feature> on|off — one feature (display, models)
+ *   /berszi <feature> on|off — one feature (display, models, exa)
  *
  * Tested against pi 1.1.0.
  */
@@ -34,7 +35,7 @@ interface Feature {
 	attached(): boolean;
 }
 
-const FEATURES: Feature[] = [displayFeature, modelsFeature];
+const FEATURES: Feature[] = [displayFeature, modelsFeature, exaFeature];
 
 interface State {
 	features: Record<string, boolean>;

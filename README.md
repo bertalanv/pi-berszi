@@ -12,6 +12,7 @@ change it here, commit, and `pi update --extensions` on the other machines.
 |---|---|---|
 | `display` | the spotlight fold — active thinking and tool calls render fully and live; the moment they finish they fold to a single line (thinking keeps a 3-line glimpse of the reasoning) | on |
 | `models` | the local `vllm` provider with the Qwen models — the model config registered in-process via `pi.registerProvider()`, so no machine-local `models.json` entry is needed or written | on |
+| `exa` | the `mcpUseApiKey` flag in pi-exa's `pi-exa.json` — with it on, `web_search_exa` / `web_fetch_exa` connect to the Exa MCP with your stored key (paid tier) instead of keyless (anonymous free tier + its rate limit) | on |
 
 ### display
 
@@ -41,6 +42,22 @@ To change what the extension ships, edit `extensions/models.ts`. If a local `mod
 also defines the provider under the same ID, both layers compose and identical entries give
 an identical result — the `models.json` entry can safely be dropped once this extension is
 updated everywhere.
+
+### exa
+
+pi-exa's MCP tools connect to the remote Exa MCP **without your key by default** —
+keyless, Exa serves the anonymous free tier and its low rate limit. (The direct-SDK
+tool `deep_search_exa` was never affected: it always reads the stored key.)
+
+This feature owns the `mcpUseApiKey` flag in `~/.pi/agent/pi-exa.json` and defaults it
+to **on** on every machine that installs pi-berszi: on load it sets the flag, preserving
+every other pi-exa config field. The key itself is never touched — pi-exa still reads it
+from `auth.json` (set once via `/exa-login`) or the `EXA_API_KEY` env var. `/exa-status`
+should show `Stored API key: found` and `MCP uses API key: yes`.
+
+`/berszi exa off` sets the flag back to false; the new flag takes effect on the next
+MCP (re)connect — pi-exa's own `/exa-mcp-use-api-key` toggle or a `/reload` drops the
+cached client.
 
 ## Bundled: pi-exa (web search) and pi-subagents (delegation)
 
@@ -72,6 +89,7 @@ While a pin is unchanged, `pi update` never touches that package.
 | `/berszi on` / `/berszi off` | all features |
 | `/berszi display on` \| `off` | the display fold |
 | `/berszi models on` \| `off` | the bundled models |
+| `/berszi exa on` \| `off` | the Exa API-key flag |
 
 Toggles persist to `~/.pi/agent/berszi-state.json`, so they survive restarts and
 `/reload`. Delete that file to reset to the defaults.
