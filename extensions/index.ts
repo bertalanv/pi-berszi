@@ -5,6 +5,7 @@ import { displayFeature } from "./display.js";
 import { modelsFeature } from "./models.js";
 import { exaFeature } from "./exa.js";
 import { chimeFeature } from "./chime.js";
+import { compactionFeature } from "./compaction.js";
 
 /**
  * berszi — personal pi setup bundle
@@ -20,7 +21,7 @@ import { chimeFeature } from "./chime.js";
  * Commands:
  *   /berszi                  — status of all features
  *   /berszi on | off         — all features (backward-compatible default)
- *   /berszi <feature> on|off — one feature (display, models, exa, chime)
+ *   /berszi <feature> on|off — one feature (display, models, exa, chime, compaction)
  *
  * Tested against pi 1.1.0.
  */
@@ -36,7 +37,7 @@ interface Feature {
 	attached(): boolean;
 }
 
-const FEATURES: Feature[] = [displayFeature, modelsFeature, exaFeature, chimeFeature];
+const FEATURES: Feature[] = [displayFeature, modelsFeature, exaFeature, chimeFeature, compactionFeature];
 
 interface State {
 	features: Record<string, boolean>;
