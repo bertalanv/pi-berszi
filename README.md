@@ -49,15 +49,27 @@ pi-exa's MCP tools connect to the remote Exa MCP **without your key by default**
 keyless, Exa serves the anonymous free tier and its low rate limit. (The direct-SDK
 tool `deep_search_exa` was never affected: it always reads the stored key.)
 
-This feature owns the `mcpUseApiKey` flag in `~/.pi/agent/pi-exa.json` and defaults it
-to **on** on every machine that installs pi-berszi: on load it sets the flag, preserving
-every other pi-exa config field. The key itself is never touched — pi-exa still reads it
-from `auth.json` (set once via `/exa-login`) or the `EXA_API_KEY` env var. `/exa-status`
-should show `Stored API key: found` and `MCP uses API key: yes`.
+This feature covers both halves, and defaults both to **on**:
 
-`/berszi exa off` sets the flag back to false; the new flag takes effect on the next
-MCP (re)connect — pi-exa's own `/exa-mcp-use-api-key` toggle or a `/reload` drops the
-cached client.
+- **The flag** — it sets `mcpUseApiKey` in `~/.pi/agent/pi-exa.json`, preserving every
+  other pi-exa config field. `/exa-status` should show `MCP uses API key: yes`.
+- **The first-launch key prompt** — the key itself lives in `~/.pi/agent/auth.json`
+  (provider `exa`), the same place pi-exa's own `/exa-login` writes it. On a machine
+  where it is missing, the first interactive pi start prompts once for the key
+  (2-minute auto-dismiss) and stores it exactly like `/exa-login` does — 0600, other
+  providers preserved. Because berszi's extension loads first and pi runs
+  `session_start` handlers in order, the key is in place before pi-exa's first MCP
+  connection: the very first search is already keyed. Dismiss the prompt and
+  `/exa-login` remains as the manual path; print mode never prompts (it announces
+  that `/exa-login` is needed instead); `EXA_API_KEY` counts as key present.
+
+Workflow: keep the key in your password manager. New machine → install pi-berszi →
+start pi → paste the key once → done, forever. The key is never sent anywhere but
+Exa and never stored outside `auth.json` on that machine.
+
+`/berszi exa off` clears the flag and stops the prompt; the new flag takes effect on
+the next MCP (re)connect — pi-exa's own `/exa-mcp-use-api-key` toggle or a `/reload`
+drops the cached client.
 
 ## Bundled: pi-exa (web search) and pi-subagents (delegation)
 
