@@ -15,27 +15,30 @@ import type { ExtensionAPI, ProviderModelConfig } from "@earendil-works/pi-codin
  * this file to change what the extension ships.
  */
 
-const VLLM_PROVIDER = "vllm";
+export const VLLM_PROVIDER = "vllm";
 const VLLM_BASE_URL = "http://100.116.35.7:8000/v1";
 // The local vLLM server ignores the key; the literal dummy value marks the
 // provider as auth-configured so pi's model picker lists the models.
 const VLLM_API_KEY = "EMPTY";
 // models.json expresses `compat` at provider level; the extension API takes
-// it per model, so it is applied to each entry.
-const VLLM_COMPAT = { supportsDeveloperRole: false };
-// Thinking policy for the local Qwen models: they run at xhigh and only at
-// xhigh. pi exposes a level only if it is supported: with reasoning: true the
-// base levels (minimal..high) are on by default and xhigh/max require an
-// explicit map entry, so null the base levels and map xhigh to the provider
-// value the vLLM server accepts. Supported set = off + xhigh; any session
-// thinking level clamps to xhigh on these models. pi sends the mapped value
-// as reasoning_effort (openai-completions, supportsReasoningEffort auto-detected).
+// it per model, so it is applied to each entry. supportsReasoningEffort is
+// load-bearing: without it pi never puts reasoning_effort on the wire.
+const VLLM_COMPAT = { supportsDeveloperRole: false, supportsReasoningEffort: true };
+// Thinking policy for the local Qwen models. The map values are what goes on
+// the wire as reasoning_effort (openai-completions, supportsReasoningEffort):
+// the session normally runs at high, which maps to xhigh. Every level stays
+// supported (no nulls) — the compaction feature re-runs pi's compact() at
+// "low" for these models, and a nulled level would clamp it back up to
+// xhigh. With these Qwen-on-vLLM setups thinking is always on, so "low" is
+// the floor (even "off" sends low).
 const VLLM_THINKING = {
-	minimal: null,
-	low: null,
-	medium: null,
-	high: null,
+	off: "low",
+	minimal: "low",
+	low: "low",
+	medium: "medium",
+	high: "xhigh",
 	xhigh: "xhigh",
+	max: "xhigh",
 };
 const VLLM_MODELS: ProviderModelConfig[] = [
 	{

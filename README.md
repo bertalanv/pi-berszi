@@ -16,6 +16,7 @@ change it here, commit, and `pi update --extensions` on the other machines.
 | `models` | the local `vllm` provider with the Qwen models — the model config registered in-process via `pi.registerProvider()`, so no machine-local `models.json` entry is needed or written | on |
 | `exa` | the `mcpUseApiKey` flag in pi-exa's `pi-exa.json` — with it on, `web_search_exa` / `web_fetch_exa` connect to the Exa MCP with your stored key (paid tier) instead of keyless (anonymous free tier + its rate limit) | on |
 | `chime` | terminal bell for backgrounded/SSH sessions: rings when the agent settles (waiting for your input) and when pi shows a question or confirmation. Cross-platform, no assets; no-op in non-TTY runs | on |
+| `compaction` | when the active model is a local `vllm` model, pi's session compaction runs at **low** thinking effort instead of the session's level — same model, same cut point, pi's own `compact()`; every other model compacts as usual | on |
 
 ### display
 
@@ -49,6 +50,29 @@ To change what the extension ships, edit `extensions/models.ts`. If a local `mod
 also defines the provider under the same ID, both layers compose and identical entries give
 an identical result — the `models.json` entry can safely be dropped once this extension is
 updated everywhere.
+
+### compaction
+
+pi compacts long sessions with a summarization LLM call that **always runs at the
+session's thinking level** — there is no setting to change it. For the local 27B that
+means a mechanical summarization running at full effort on local inference.
+
+When the active model belongs to the bundled `vllm` provider, this feature re-runs pi's
+own `compact()` for that model with the thinking level pinned to **low**: same model,
+same cut point, same prompt, same persistence — only the effort of the summarization
+call differs. The match is on the provider, not a model-ID list, so every model the
+`models` feature ships (and any `vllm` model a local `models.json` adds) is covered
+without anything to keep in sync.
+
+- every other model (cloud Qwen, DeepSeek, Claude via pi-claude-bridge, ...) is
+  untouched: the hook returns undefined and pi compacts as usual
+- `low` reaches the server because `extensions/models.ts` keeps it a supported thinking
+  level and maps it to the wire value — the summarization request carries
+  `reasoning_effort: "low"` while normal turns carry the session level
+- on failure: one warning (`local-compaction: … — using pi's built-in compaction`),
+  then pi's built-in compaction runs; an Esc during compaction is silent
+- verify after a compaction: the session `.jsonl` entry for the summary has
+  `"fromHook": true` (pi-native entries lack the flag)
 
 ### exa
 
