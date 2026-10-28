@@ -4,6 +4,7 @@ import { getAgentDir, VERSION, type ExtensionAPI } from "@earendil-works/pi-codi
 import { displayFeature } from "./display.js";
 import { modelsFeature } from "./models.js";
 import { exaFeature } from "./exa.js";
+import { chimeFeature } from "./chime.js";
 
 /**
  * berszi — personal pi setup bundle
@@ -19,7 +20,7 @@ import { exaFeature } from "./exa.js";
  * Commands:
  *   /berszi                  — status of all features
  *   /berszi on | off         — all features (backward-compatible default)
- *   /berszi <feature> on|off — one feature (display, models, exa)
+ *   /berszi <feature> on|off — one feature (display, models, exa, chime)
  *
  * Tested against pi 1.1.0.
  */
@@ -35,7 +36,7 @@ interface Feature {
 	attached(): boolean;
 }
 
-const FEATURES: Feature[] = [displayFeature, modelsFeature, exaFeature];
+const FEATURES: Feature[] = [displayFeature, modelsFeature, exaFeature, chimeFeature];
 
 interface State {
 	features: Record<string, boolean>;
