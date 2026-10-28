@@ -13,6 +13,7 @@ change it here, commit, and `pi update --extensions` on the other machines.
 | `display` | the spotlight fold — active thinking and tool calls render fully and live; the moment they finish they fold to a single line (thinking keeps a 3-line glimpse of the reasoning) | on |
 | `models` | the local `vllm` provider with the Qwen models — the model config registered in-process via `pi.registerProvider()`, so no machine-local `models.json` entry is needed or written | on |
 | `exa` | the `mcpUseApiKey` flag in pi-exa's `pi-exa.json` — with it on, `web_search_exa` / `web_fetch_exa` connect to the Exa MCP with your stored key (paid tier) instead of keyless (anonymous free tier + its rate limit) | on |
+| `chime` | macOS system sounds for backgrounded sessions: **Glass** when the agent settles (waiting for your input), **Ping** when pi shows a question or confirmation. No-op on non-mac machines (reads "on", stays silent) | on |
 
 ### display
 
@@ -71,6 +72,19 @@ Exa and never stored outside `auth.json` on that machine.
 the next MCP (re)connect — pi-exa's own `/exa-mcp-use-api-key` toggle or a `/reload`
 drops the cached client.
 
+### chime
+
+Two short stock macOS sounds at the moments a human is actually needed, so a pi
+session you've backgrounded (or run over SSH) gets your attention without watching:
+
+- **Glass** — `agent_settled`: the response is finished and pi is waiting for your input
+- **Ping** — `ui_prompt_start`: pi is showing a blocking prompt (question / confirm / input)
+
+Sounds are the system ones in `/System/Library/Sounds` (no assets shipped); playback is
+`afplay`, detached and unref'd, so it never blocks a turn. On non-mac platforms the
+listeners register but playback is a no-op — the feature reads "on" everywhere and simply
+stays silent.
+
 ## Bundled: pi-exa (web search) and pi-subagents (delegation)
 
 pi-berszi ships [pi-exa](https://github.com/junnjiee/pi-exa) as a **pinned npm dependency**
@@ -102,6 +116,7 @@ While a pin is unchanged, `pi update` never touches that package.
 | `/berszi display on` \| `off` | the display fold |
 | `/berszi models on` \| `off` | the bundled models |
 | `/berszi exa on` \| `off` | the Exa API-key flag |
+| `/berszi chime on` \| `off` | the macOS system sounds |
 
 Toggles persist to `~/.pi/agent/berszi-state.json`, so they survive restarts and
 `/reload`. Delete that file to reset to the defaults.

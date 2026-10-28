@@ -1,7 +1,7 @@
 {
 	"name": "pi-berszi",
-	"version": "1.4.0",
-	"description": "Personal pi setup: the spotlight display fold, bundled model config, pi-exa web search (API-key on by default, first-launch key prompt), and pi-subagents, in one install",
+	"version": "1.5.0",
+	"description": "Personal pi setup: the spotlight display fold, bundled model config, pi-exa web search (API-key on by default, first-launch key prompt), pi-subagents, and macOS chime sounds, in one install",
 	"keywords": [
 		"pi-package",
 		"pi-coding-agent",
