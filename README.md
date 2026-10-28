@@ -2,7 +2,8 @@
 
 Personal [pi](https://github.com/badlogic/pi-mono) setup in one package: everything you tweak
 on one machine, carried to all of them — including [pi-exa](https://github.com/junnjiee/pi-exa)
-(web search), which this package pins and pulls in automatically. Install once per machine;
+(web search) and [pi-subagents](https://github.com/nicobailon/pi-subagents) (subagent
+delegation), which this package pins and pulls in automatically. Install once per machine;
 change it here, commit, and `pi update --extensions` on the other machines.
 
 ## Features
@@ -41,7 +42,7 @@ also defines the provider under the same ID, both layers compose and identical e
 an identical result — the `models.json` entry can safely be dropped once this extension is
 updated everywhere.
 
-## Bundled: pi-exa (web search)
+## Bundled: pi-exa (web search) and pi-subagents (delegation)
 
 pi-berszi ships [pi-exa](https://github.com/junnjiee/pi-exa) as a **pinned npm dependency**
 (currently `0.6.1` in `package.json`), so you never install it separately. It adds Exa web
@@ -49,15 +50,19 @@ search (`web_search_exa`), fetch (`web_fetch_exa`), optional deep search (needs 
 key via `/exa-login`), and its own `/exa-*` commands — no key required for the free
 search/fetch tier.
 
+It also ships [pi-subagents](https://github.com/nicobailon/pi-subagents) (currently
+`0.83.1` in `package.json`), so the subagent delegation tools, their skills, and prompts
+load with the same install — no separate `npm:pi-subagents` package entry needed.
+
 Updates are manual, your call:
 
-1. Check the latest version: `npm view pi-exa version` (compare with the pin in
-   `package.json`)
-2. If you want it: bump the `pi-exa` pin in `package.json`, commit, push
+1. Check the latest version: `npm view pi-exa version` / `npm view pi-subagents version`
+   (compare with the pins in `package.json`)
+2. If you want it: bump the pin in `package.json`, commit, push
 3. `pi update --extensions` on each machine — when the repo moves, pi re-resolves the
-   dependency and the new pi-exa is picked up automatically
+   dependency and the new package version is picked up automatically
 
-While the pin is unchanged, `pi update` never touches pi-exa.
+While a pin is unchanged, `pi update` never touches that package.
 
 ## Commands
 
@@ -94,7 +99,7 @@ Status, on/off toggles, and persistence come for free.
 ## Install / update
 
 ```bash
-pi install git:github.com/bertalanv/pi-berszi   # once, per machine — pulls in pi-exa too
+pi install git:github.com/bertalanv/pi-berszi   # once, per machine — pulls in pi-exa + pi-subagents too
 pi update --extensions                            # after pushing changes here
 ```
 
