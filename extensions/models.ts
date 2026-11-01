@@ -77,6 +77,9 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 		compat: VLLM_COMPAT,
 	},
 	// Served by the `start_yarn` vLLM server (730k context, text-only).
+	// maxTokens is doubled vs. the base models: pi 1.4 sizes the compaction
+	// summary off the model's output limit (no separate compaction budget),
+	// and a 730k-context session outgrows 24k of summary room quickly.
 	{
 		id: "heavy/Qwen3.8-27B-FP8-YARN",
 		name: "Qwen3.8-27B dense (local, FP8-YARN)",
@@ -85,10 +88,11 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 		thinkingLevelMap: VLLM_THINKING,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 730000,
-		maxTokens: 24576,
+		maxTokens: 49152,
 		compat: VLLM_COMPAT,
 	},
 	// Served by the `vision_yarn` vLLM server (500k context, text + image).
+	// Same doubled output limit as FP8-YARN (see above).
 	{
 		id: "heavy/Qwen3.8-27B-VISION-YARN",
 		name: "Qwen3.8-27B dense (local, VISION-YARN)",
@@ -97,7 +101,7 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 		thinkingLevelMap: VLLM_THINKING,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 500000,
-		maxTokens: 24576,
+		maxTokens: 49152,
 		compat: VLLM_COMPAT,
 	},
 ];
