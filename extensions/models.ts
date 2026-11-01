@@ -76,6 +76,30 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 		maxTokens: 24576,
 		compat: VLLM_COMPAT,
 	},
+	// Served by the `start_yarn` vLLM server (730k context, text-only).
+	{
+		id: "heavy/Qwen3.8-27B-FP8-YARN",
+		name: "Qwen3.8-27B dense (local, FP8-YARN)",
+		input: ["text"],
+		reasoning: true,
+		thinkingLevelMap: VLLM_THINKING,
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 730000,
+		maxTokens: 24576,
+		compat: VLLM_COMPAT,
+	},
+	// Served by the `vision_yarn` vLLM server (500k context, text + image).
+	{
+		id: "heavy/Qwen3.8-27B-VISION-YARN",
+		name: "Qwen3.8-27B dense (local, VISION-YARN)",
+		input: ["text", "image"],
+		reasoning: true,
+		thinkingLevelMap: VLLM_THINKING,
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 500000,
+		maxTokens: 24576,
+		compat: VLLM_COMPAT,
+	},
 ];
 
 let registered = false;

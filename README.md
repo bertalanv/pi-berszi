@@ -41,8 +41,10 @@ change it here, commit, and `pi update --extensions` on the other machines.
   | `heavy/Qwen3.8-27B-FP8` | 216064 | 24576 | text |
   | `heavy/Qwen3.8-27B-FP8-FULL` | 262144 | 24576 | text |
   | `heavy/Qwen3.8-27B-FP8-VISION` | 262144 | 24576 | text + image |
+  | `heavy/Qwen3.8-27B-FP8-YARN` | 730000 | 24576 | text |
+  | `heavy/Qwen3.8-27B-VISION-YARN` | 500000 | 24576 | text + image |
 
-  All three run thinking with the graded wire map: the usual `high` session level maps to
+  All five run thinking with the graded wire map: the usual `high` session level maps to
   `reasoning_effort: "xhigh"` on the wire, `low` to `"low"` (which the compaction feature
   uses for summarization), and `off` still sends `"low"` — with these Qwen-on-vLLM setups
   thinking is always on, so low is the floor.
