@@ -1,5 +1,10 @@
 # pi-berszi
 
+For humans:
+This is a mono package, with all the extension I use with Pi, so I can copy it over my VMs easily. This how I like to use the Pi harness. I recommend not to copy it, but for inspiration and ideas to create your own customization.
+
+For machines:
+
 Personal [pi](https://github.com/badlogic/pi-mono) setup in one package: everything you tweak
 on one machine, carried to all of them — including [pi-exa](https://github.com/junnjiee/pi-exa)
 (web search), [pi-subagents](https://github.com/nicobailon/pi-subagents) (subagent
