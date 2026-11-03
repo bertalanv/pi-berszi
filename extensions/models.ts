@@ -74,9 +74,11 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		// Window matches the engine's max_model_len exactly. The compaction
 		// trigger is controlled by compaction.reserveTokens in settings.json
-		// (38,077 on this machine -> compact at 224,067).
+		// (38,077 on this machine -> compact at 224,067). maxTokens equals
+		// that reserve on purpose: it is the other side of the summary cap
+		// min(0.8 * hookBudget, maxTokens) -> 38,077 (see compaction.ts).
 		contextWindow: 262144,
-		maxTokens: 24576,
+		maxTokens: 38077,
 		compat: VLLM_COMPAT,
 	},
 	// Served by the `start_yarn` vLLM server (730k context, text-only).
