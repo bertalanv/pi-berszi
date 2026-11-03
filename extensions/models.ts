@@ -79,9 +79,9 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 		compat: VLLM_COMPAT,
 	},
 	// Served by the `start_yarn` vLLM server (730k context, text-only).
-	// maxTokens is doubled vs. the base models: pi 1.4 sizes the compaction
-	// summary off the model's output limit (no separate compaction budget),
-	// and a 730k-context session outgrows 24k of summary room quickly.
+	// maxTokens is doubled vs. the base models for extra response headroom in
+	// long sessions; the compaction summary budget is independent (the
+	// compaction feature pins it at 24,576 regardless of maxTokens).
 	{
 		id: "heavy/Qwen3.8-27B-FP8-YARN",
 		name: "Qwen3.8-27B dense (local, FP8-YARN)",

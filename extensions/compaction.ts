@@ -30,6 +30,16 @@ import { VLLM_PROVIDER } from "./models.js";
  */
 
 const LOW_EFFORT_THINKING_LEVEL = "low";
+// pi 1.4 double-uses reserveTokens: it is the trigger headroom (compact when
+// context > window - reserveTokens) AND the summary output budget (cap =
+// min(0.8 * reserveTokens, model.maxTokens)). Settings carry the 24,576
+// trigger reserve, which would silently shrink the summary cap to 19,660,
+// so the hook raises the prepared budget to the smallest value whose 0.8x
+// still covers SUMMARY_OUTPUT_CAP. pi computes the trigger before the hook
+// and never reuses preparation afterwards, so this only affects the
+// summarization call below.
+const SUMMARY_OUTPUT_CAP = 24576;
+const SUMMARY_RESERVE_TOKENS = Math.ceil(SUMMARY_OUTPUT_CAP / 0.8); // 30,720
 
 type FileOps = { read: Set<string>; edited: Set<string> };
 
@@ -68,6 +78,10 @@ export const compactionFeature = {
 					const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
 					if (!auth.ok) throw new Error(auth.error);
 					restorePreviousFileOps(event.preparation.fileOps, event.branchEntries);
+					event.preparation.settings.reserveTokens = Math.max(
+						event.preparation.settings.reserveTokens,
+						SUMMARY_RESERVE_TOKENS,
+					);
 					const compaction = await compact(
 						event.preparation,
 						model,
