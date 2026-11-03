@@ -59,15 +59,19 @@ function restorePreviousFileOps(fileOps: FileOps, branchEntries: { type: string;
 	for (const f of Array.isArray(details.modifiedFiles) ? details.modifiedFiles : []) if (typeof f === "string") fileOps.edited.add(f);
 }
 
-let detach: (() => void) | undefined;
+// The factory runs multiple times per process; each run's pi object holds
+// its own handlers, and only the last run's object is live. A module-level
+// guard would skip attaching to the live object (the chime.ts bug) — track
+// per object instead.
+const detachFns = new Map<ExtensionAPI, () => void>();
 
 export const compactionFeature = {
 	name: "compaction",
 	description: "compact local vLLM sessions at low thinking effort (same model, pi's own compact())",
 	enable(pi: ExtensionAPI): boolean {
-		if (detach) return true; // idempotent across toggles in one process
+		if (detachFns.has(pi)) return true; // already attached to this object (idempotent)
 		try {
-			detach = pi.on("session_before_compact", async (event, ctx) => {
+			const off = pi.on("session_before_compact", async (event, ctx) => {
 				const model = ctx.model;
 				if (!model || model.provider !== VLLM_PROVIDER) return; // built-in compaction
 				// Already aborted (Esc landed before the hook ran): compact() would not
@@ -106,23 +110,25 @@ export const compactionFeature = {
 					return;
 				}
 			});
+			detachFns.set(pi, off);
 			return true;
 		} catch {
 			// fail-open: pi's built-in compaction is unaffected
-			detach = undefined;
 			return false;
 		}
 	},
 	disable(_pi: ExtensionAPI): boolean {
-		try {
-			detach?.();
-		} catch {
-			/* already gone */
+		for (const off of detachFns.values()) {
+			try {
+				off();
+			} catch {
+				/* already gone */
+			}
 		}
-		detach = undefined;
+		detachFns.clear();
 		return true;
 	},
 	attached(): boolean {
-		return detach !== undefined;
+		return detachFns.size > 0;
 	},
 };

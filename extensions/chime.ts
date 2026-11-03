@@ -30,43 +30,56 @@ function chime(): void {
 	}
 }
 
-const detachFns: (() => void)[] = [];
-let attachedNow = false;
+// The extension factory runs multiple times per process (initial load, then
+// the load bound to the resumed session, ~3 s apart). Each run gets a fresh
+// ExtensionAPI whose pi.on() handlers register on that object's own extension
+// record, and only the last run's object is live for the active session. A
+// single module-level "already attached" flag made the second run return
+// early, leaving the live object with zero handlers — agent_settled fired
+// into the void while /berszi still reported "on". So: attach on every new
+// object (idempotent per object), detach from all on disable. Handlers on
+// orphaned objects never fire; the extra attachments are harmless.
+const attachedTo = new Set<ExtensionAPI>();
+const detachFns = new Map<ExtensionAPI, (() => void)[]>();
 
 export const chimeFeature = {
 	name: "chime",
 	description: "terminal bell: rings when the agent settles, and when pi asks a question",
 	enable(pi: ExtensionAPI): boolean {
-		if (attachedNow) return true; // idempotent across toggles in one process
+		if (attachedTo.has(pi)) return true; // already attached to this object (idempotent)
+		const offs: (() => void)[] = [];
 		try {
-			detachFns.push(pi.on("agent_settled", () => chime()));
-			detachFns.push(pi.on("ui_prompt_start", () => chime()));
-			attachedNow = true;
-			return true;
+			offs.push(pi.on("agent_settled", () => chime()));
+			offs.push(pi.on("ui_prompt_start", () => chime()));
 		} catch {
-			for (const off of detachFns.splice(0)) {
+			for (const off of offs) {
 				try {
 					off();
 				} catch {
 					/* partial attach: best-effort rollback */
 				}
 			}
-			attachedNow = false;
 			return false;
 		}
+		attachedTo.add(pi);
+		detachFns.set(pi, offs);
+		return true;
 	},
 	disable(_pi: ExtensionAPI): boolean {
-		for (const off of detachFns.splice(0)) {
-			try {
-				off();
-			} catch {
-				/* already gone */
+		for (const offs of detachFns.values()) {
+			for (const off of offs) {
+				try {
+					off();
+				} catch {
+					/* already gone */
+				}
 			}
 		}
-		attachedNow = false;
+		attachedTo.clear();
+		detachFns.clear();
 		return true;
 	},
 	attached(): boolean {
-		return attachedNow;
+		return attachedTo.size > 0;
 	},
 };

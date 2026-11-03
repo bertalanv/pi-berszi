@@ -100,7 +100,11 @@ function storeExaKey(key: string): boolean {
 
 let flagWritten = false;
 let featureOn = false;
-let hooksRegistered = false;
+// pi objects whose session_start hook is registered. The factory runs
+// multiple times per process with fresh objects (see chime.ts); a single
+// boolean made the live object miss the hook. The hook body is gated by
+// featureOn, so disable() only flips the flag — no detach needed.
+const hooked = new Set<ExtensionAPI>();
 let promptedThisProcess = false;
 
 export const exaFeature = {
@@ -110,8 +114,8 @@ export const exaFeature = {
 	enable(pi: ExtensionAPI): boolean {
 		featureOn = true;
 		flagWritten = setMcpUseApiKey(true);
-		if (hooksRegistered) return flagWritten;
-		hooksRegistered = true;
+		if (hooked.has(pi)) return flagWritten; // already hooked this object (idempotent)
+		hooked.add(pi);
 
 		pi.on("session_start", async (_event, ctx) => {
 			if (!featureOn || hasExaKey()) return;
