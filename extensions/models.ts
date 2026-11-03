@@ -72,9 +72,10 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 		reasoning: true,
 		thinkingLevelMap: VLLM_THINKING,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		// Intentionally below the engine's 262,144 max_model_len: the session
-		// compacts before it can run into the server's hard limit.
-		contextWindow: 248643,
+		// Window matches the engine's max_model_len exactly. The compaction
+		// trigger is controlled by compaction.reserveTokens in settings.json
+		// (38,077 on this machine -> compact at 224,067).
+		contextWindow: 262144,
 		maxTokens: 24576,
 		compat: VLLM_COMPAT,
 	},
