@@ -18,7 +18,7 @@ change it here, commit, and `pi update --extensions` on the other machines.
 | Feature | Carries | Default |
 |---|---|---|
 | `display` | the spotlight fold — active thinking and tool calls render fully and live; the moment they finish they fold to a single line (thinking keeps a 3-line glimpse of the reasoning) | on |
-| `models` | the local `vllm` provider with the Qwen models — the model config registered in-process via `pi.registerProvider()`, so no machine-local `models.json` entry is needed or written. Also ships `vllm/heavy/Qwen3.8-27B-FP8` as the default model for new sessions (only when the machine has no usable default of its own) | on |
+| `models` | the local `vllm` provider with the Qwen models — the model config registered in-process via `pi.registerProvider()`, so no machine-local `models.json` entry is needed or written. Also ships `vllm/heavy/Qwen3.8-27B-FP8-VISION` as the default model for new sessions, per-model compaction reserves, and migrates the bundle's own earlier defaults (the user's other choices are respected) | on |
 | `exa` | the `mcpUseApiKey` flag in pi-exa's `pi-exa.json` — with it on, `web_search_exa` / `web_fetch_exa` connect to the Exa MCP with your stored key (paid tier) instead of keyless (anonymous free tier + its rate limit) | on |
 | `chime` | terminal bell for backgrounded/SSH sessions: rings when the agent settles (waiting for your input) and when pi shows a question or confirmation. Cross-platform, no assets; no-op in non-TTY runs | on |
 | `compaction` | when the active model is a local `vllm` model, pi's session compaction runs at **low** thinking effort instead of the session's level — same model, same cut point, pi's own `compact()`; every other model compacts as usual | on |
@@ -45,7 +45,7 @@ change it here, commit, and `pi update --extensions` on the other machines.
   |---|---|---|---|
   | `heavy/Qwen3.8-27B-FP8` | 216064 | 24576 | text |
   | `heavy/Qwen3.8-27B-FP8-FULL` | 262144 | 24576 | text |
-  | `heavy/Qwen3.8-27B-FP8-VISION` | 262144 | 24576 | text + image |
+  | `heavy/Qwen3.8-27B-FP8-VISION` | 262144 | 38077 | text + image |
   | `heavy/Qwen3.8-27B-FP8-YARN` | 730000 | 49152 | text |
   | `heavy/Qwen3.8-27B-VISION-YARN` | 500000 | 49152 | text + image |
 
@@ -56,14 +56,17 @@ change it here, commit, and `pi update --extensions` on the other machines.
 
 #### Default model
 
-The feature also ships `vllm/heavy/Qwen3.8-27B-FP8` as the **default model for new
-sessions**, written into `defaultProvider`/`defaultModel` in the agent's `settings.json`
-— the only mechanism pi provides for startup defaults (there is no extension API for them).
-It runs only when the machine has no usable default of its own:
+The feature also ships `vllm/heavy/Qwen3.8-27B-FP8-VISION` as the **default model for
+new sessions**, written into `defaultProvider`/`defaultModel` in the agent's
+`settings.json` — the only mechanism pi provides for startup defaults (there is no
+extension API for them). It runs only when the machine has no usable default of its own
+(or still carries one of the bundle's own earlier defaults):
 
 - no default set → the shipped default is written
 - a **legacy name of this server** (`vllm-tailscale`, `vllm-local`) → the provider is
   rewritten to `vllm`, keeping the model choice if it is one of the shipped models
+- an **earlier bundle default** (e.g. the old base `FP8` model) → migrated to the
+  current default — the bundle owns the defaults it set itself
 - `vllm` + a model id no longer shipped (renamed/removed) → the model is fixed, provider kept
 - any other resolvable default (another provider, or one of the other shipped models) →
   **respected, never overwritten** — Ctrl+S a different model and it sticks
@@ -73,6 +76,16 @@ write is atomic (tmp file + rename) touching only the two default fields. Disabl
 feature clears a `vllm` default so it never dangles; the shipped default comes back on
 re-enable. Project-level `.pi/settings.json` defaults still win over the global file, same
 as pi's own default.
+
+#### Per-model compaction reserve
+
+The feature also ships the `compaction.modelOverrides["vllm/<model>"]` entries in
+`settings.json` — the trigger reserve (pi compacts at `contextWindow - reserveTokens`).
+Shipped values: `24,576` for every model except `VISION`, which is `38,077` (compact at
+224,067) to leave room for its longer iterative summaries. Missing entries are written
+and a legacy server name is moved to the `vllm` key keeping its value; any other explicit
+value is local tuning — respected, never overwritten. Disabling the feature drops the
+entries it wrote and keeps tuned ones.
 
 To change what the extension ships, edit `extensions/models.ts`. If a local `models.json`
 also defines the provider under the same ID, both layers compose and identical entries give

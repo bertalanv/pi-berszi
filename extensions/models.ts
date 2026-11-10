@@ -84,7 +84,7 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 	// Served by the `start_yarn` vLLM server (730k context, text-only).
 	// maxTokens is doubled vs. the base models for extra response headroom in
 	// long sessions; the compaction summary budget is independent (the
-	// compaction feature pins it at 24,576 regardless of maxTokens).
+	// compaction feature pins it — see compaction.ts).
 	{
 		id: "heavy/Qwen3.8-27B-FP8-YARN",
 		name: "Qwen3.8-27B dense (local, FP8-YARN)",
@@ -135,21 +135,28 @@ const VLLM_COMPACTION_RESERVES: Record<string, number> = {
 };
 
 // --- Shipped default model ---------------------------------------------------
-// The bundle makes the base FP8 model the default for new sessions — but only
-// when the machine has no usable default of its own. pi resolves startup
-// models from settings.json (defaultProvider + defaultModel); there is no
-// extension API for defaults, so the feature maintains those two fields in
+// The bundle makes the vision model the default for new sessions — but only
+// when the machine has no usable default of its own (or still carries one of
+// the bundle's own earlier defaults). pi resolves startup models from
+// settings.json (defaultProvider + defaultModel); there is no extension API
+// for defaults, so the feature maintains those two fields in
 // <agent dir>/settings.json itself, touching nothing else:
 //   - no default at all            -> set the shipped default
 //   - a legacy name of this server -> rewrite the provider to vllm, keeping
 //                                     the model choice if it is one of ours
+//   - an earlier bundle default    -> migrate to the current default
 //   - vllm + a model we no longer ship -> fix the model, keep the provider
 //   - any other resolvable default -> respected, never overwritten
 // Disabling the feature clears a dangling vllm default (the provider goes
 // away with it). Project-level .pi/settings.json defaults still win over the
 // global file, exactly like pi's own Ctrl+S default.
 
-const DEFAULT_MODEL_ID = "heavy/Qwen3.8-27B-FP8";
+const DEFAULT_MODEL_ID = "heavy/Qwen3.8-27B-FP8-VISION";
+// Model ids the bundle itself previously shipped as the default. Boxes that
+// carry them got that choice from an earlier bundle release, not from the
+// user, so they migrate to the current default like any other legacy state
+// (any other shipped model is still the user's choice and stays respected).
+const LEGACY_DEFAULT_MODELS = ["heavy/Qwen3.8-27B-FP8"];
 // Provider names this local server carried on the author's machines before
 // the bundle; settings.json files from that era still reference them.
 const LEGACY_PROVIDER_NAMES = ["vllm-tailscale", "vllm-local"];
@@ -204,9 +211,20 @@ function ensureDefaultModel(): { newDefault: string; previous: string } | undefi
 
 	if (provider === VLLM_PROVIDER && model === DEFAULT_MODEL_ID) return; // already the shipped default
 
-	// Legacy name of this same server: keep the model choice if it is one of ours.
+	// A default an earlier bundle release set: the bundle owns its own
+	// defaults, so migrate it to the current one.
+	if (provider === VLLM_PROVIDER && LEGACY_DEFAULT_MODELS.includes(model)) {
+		if (writeSettings(settings, { defaultModel: DEFAULT_MODEL_ID })) {
+			return { newDefault: `${VLLM_PROVIDER}/${DEFAULT_MODEL_ID}`, previous };
+		}
+		return;
+	}
+
+	// Legacy name of this same server: keep the model choice if it is one of
+	// ours (an earlier bundle default included — migrated to the current one).
 	if (provider && LEGACY_PROVIDER_NAMES.includes(provider)) {
-		const modelId = model && shippedIds.includes(model) ? model : DEFAULT_MODEL_ID;
+		let modelId = model && shippedIds.includes(model) ? model : DEFAULT_MODEL_ID;
+		if (LEGACY_DEFAULT_MODELS.includes(modelId)) modelId = DEFAULT_MODEL_ID;
 		if (writeSettings(settings, { defaultProvider: VLLM_PROVIDER, defaultModel: modelId })) {
 			return { newDefault: `${VLLM_PROVIDER}/${modelId}`, previous };
 		}
