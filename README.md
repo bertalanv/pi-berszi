@@ -59,13 +59,14 @@ change it here, commit, and `pi update --extensions` on the other machines.
 
   | model | contextWindow | maxTokens | input |
   |---|---|---|---|
-  | `heavy/Qwen3.8-Flash-Next Q4` | 262144 | 32768 | text |
+  | `heavy/Qwen3.8-Flash-Next-Q4` | 262144 | 32768 | text |
 
-  The model id is the alias Strata reports for the loaded model — it carries
-  the same `heavy/` prefix the vLLM server's aliases use, so it looks like its
-  siblings in the picker. pi sends it verbatim, so it must stay exactly what
-  the server lists under `/v1/models` (start Strata with
-  `--alias "heavy/Qwen3.8-Flash-Next Q4"`). No `compat` override
+  The model id is the alias Strata reports for the loaded model — `heavy/`
+  prefix, dashes, no spaces, the same shape as the vLLM models, so it looks
+  like its siblings in the picker. pi sends it verbatim, so it must stay
+  exactly what the server lists under `/v1/models` (Strata is started with
+  `--alias "heavy/Qwen3.8-Flash-Next-Q4"`). A local compaction override for
+  this model uses the key `strata/heavy/Qwen3.8-Flash-Next-Q4`. No `compat` override
   and no thinking map: for an unknown local URL pi's auto-detection already picks the
   "openai" thinking format with `supportsReasoningEffort` on, so the session's thinking
   level rides the wire as `reasoning_effort` and `off` sends no effort at all (unlike the
