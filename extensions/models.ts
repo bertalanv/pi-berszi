@@ -114,8 +114,9 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 // --- Strata provider ---------------------------------------------------------
 // The Strata server (same box as vLLM, port 8080). Serves one quantized
 // Qwen3.8-Flash-Next GGUF. The model id is the alias Strata reports for the
-// loaded model — pi sends it verbatim, so it must stay exactly what the
-// server lists under /v1/models.
+// loaded model (started with --alias "heavy/Qwen3.8-Flash-Next Q4", the same
+// heavy/ naming the vLLM server uses) — pi sends it verbatim, so it must
+// stay exactly what the server lists under /v1/models.
 //
 // No compat override and no thinkingLevelMap, on purpose: for an unknown
 // local URL pi's auto-detection already picks thinkingFormat "openai" with
@@ -130,8 +131,8 @@ const STRATA_BASE_URL = "http://100.116.35.7:8080/v1";
 const STRATA_API_KEY = "none";
 const STRATA_MODELS: ProviderModelConfig[] = [
 	{
-		id: "Qwen3.8-Flash-Next Q4",
-		name: "Qwen3.8-Flash-Next Q4",
+		id: "heavy/Qwen3.8-Flash-Next Q4",
+		name: "Qwen3.8-Flash-Next Q4 (Strata)",
 		input: ["text"],
 		reasoning: true,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
