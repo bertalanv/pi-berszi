@@ -18,7 +18,7 @@ change it here, commit, and `pi update --extensions` on the other machines.
 | Feature | Carries | Default |
 |---|---|---|
 | `display` | the spotlight fold — active thinking and tool calls render fully and live; the moment they finish they fold to a single line (thinking keeps a 3-line glimpse of the reasoning) | on |
-| `models` | the local `vllm` provider with the Qwen models — the model config registered in-process via `pi.registerProvider()`, so no machine-local `models.json` entry is needed or written. Also ships `vllm/heavy/Qwen3.8-27B-FP8-VISION` as the default model for new sessions, per-model compaction reserves, and migrates the bundle's own earlier defaults (the user's other choices are respected) | on |
+| `models` | the local `vllm` provider with the Qwen models and the local `strata` provider with the Qwen3.8-Flash-Next model — the model config registered in-process via `pi.registerProvider()`, so no machine-local `models.json` entry is needed or written. Also ships `vllm/heavy/Qwen3.8-27B-FP8-VISION` as the default model for new sessions, per-model compaction reserves for the vllm models, and migrates the bundle's own earlier defaults (the user's other choices are respected) | on |
 | `exa` | the `mcpUseApiKey` flag in pi-exa's `pi-exa.json` — with it on, `web_search_exa` / `web_fetch_exa` connect to the Exa MCP with your stored key (paid tier) instead of keyless (anonymous free tier + its rate limit) | on |
 | `chime` | terminal bell for backgrounded/SSH sessions: rings when the agent settles (waiting for your input) and when pi shows a question or confirmation. Cross-platform, no assets; no-op in non-TTY runs | on |
 | `compaction` | when the active model is a local `vllm` model, pi's session compaction runs at **low** thinking effort instead of the session's level — same model, same cut point, pi's own `compact()`; every other model compacts as usual | on |
@@ -53,6 +53,21 @@ change it here, commit, and `pi update --extensions` on the other machines.
   `reasoning_effort: "xhigh"` on the wire, `low` to `"low"` (which the compaction feature
   uses for summarization), and `off` still sends `"low"` — with these Qwen-on-vLLM setups
   thinking is always on, so low is the floor.
+
+- provider `strata` at `http://100.116.35.7:8080/v1` (openai-completions, dummy key —
+  the Strata server ignores it), same box as the vLLM server
+
+  | model | contextWindow | maxTokens | input |
+  |---|---|---|---|
+  | `Qwen3.8-Flash-Next Q4` | 262144 | 32768 | text |
+
+  The model id is the alias Strata reports for the loaded model; pi sends it verbatim,
+  so it must stay exactly what the server lists under `/v1/models`. No `compat` override
+  and no thinking map: for an unknown local URL pi's auto-detection already picks the
+  "openai" thinking format with `supportsReasoningEffort` on, so the session's thinking
+  level rides the wire as `reasoning_effort` and `off` sends no effort at all (unlike the
+  vLLM models, which think even at `off`). The low-effort compaction pin is vLLM-only;
+  a Strata session compacts with pi's built-in behavior.
 
 #### Default model
 

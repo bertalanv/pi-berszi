@@ -5,9 +5,9 @@ import { getAgentDir, type ExtensionAPI, type ProviderModelConfig } from "@earen
 /**
  * spotlight — models feature (bundled model config)
  *
- * Mirror of the author's local vLLM provider, shipped inside the extension:
- * every machine that has berszi installed gets the same models without the
- * extension writing to models.json.
+ * Mirror of the author's local vLLM and Strata providers, shipped inside the
+ * extension: every machine that has berszi installed gets the same models
+ * without the extension writing to models.json.
  * pi.registerProvider() is the supported extension API: the call is queued
  * during initial load and applied once the runner binds its context, so the
  * models are available from the first session (no /reload). Re-registration
@@ -111,7 +111,37 @@ const VLLM_MODELS: ProviderModelConfig[] = [
 	},
 ];
 
-let registered = false;
+// --- Strata provider ---------------------------------------------------------
+// The Strata server (same box as vLLM, port 8080). Serves one quantized
+// Qwen3.8-Flash-Next GGUF. The model id is the alias Strata reports for the
+// loaded model — pi sends it verbatim, so it must stay exactly what the
+// server lists under /v1/models.
+//
+// No compat override and no thinkingLevelMap, on purpose: for an unknown
+// local URL pi's auto-detection already picks thinkingFormat "openai" with
+// supportsReasoningEffort on, so the session's thinking level rides the wire
+// as reasoning_effort (Strata accepts it) and "off" sends no effort at all.
+// The vLLM server gets its explicit thinking map instead, because its Qwen
+// template thinks even at off — different server, different policy.
+export const STRATA_PROVIDER = "strata";
+const STRATA_BASE_URL = "http://100.116.35.7:8080/v1";
+// The Strata server ignores the key; the literal dummy value marks the
+// provider as auth-configured so pi's model picker lists the models.
+const STRATA_API_KEY = "none";
+const STRATA_MODELS: ProviderModelConfig[] = [
+	{
+		id: "Qwen3.8-Flash-Next Q4",
+		name: "Qwen3.8-Flash-Next Q4",
+		input: ["text"],
+		reasoning: true,
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 262144,
+		maxTokens: 32768,
+	},
+];
+
+let vllmRegistered = false;
+let strataRegistered = false;
 
 // --- Per-model compaction reserves ------------------------------------------
 // pi triggers auto-compaction at contextWindow - reserveTokens, with the
@@ -347,7 +377,7 @@ let defaultNotice: string | undefined;
 
 export const modelsFeature = {
 	name: "models",
-	description: "bundled vLLM provider, default model, per-model compaction reserves",
+	description: "bundled vLLM + Strata providers, default model, per-model compaction reserves",
 	enable(pi: ExtensionAPI): boolean {
 		let ok = false;
 		try {
@@ -361,7 +391,20 @@ export const modelsFeature = {
 		} catch {
 			// fail-open: provider simply absent
 		}
-		registered = ok;
+		let strataOk = false;
+		try {
+			pi.registerProvider(STRATA_PROVIDER, {
+				baseUrl: STRATA_BASE_URL,
+				apiKey: STRATA_API_KEY,
+				api: "openai-completions",
+				models: STRATA_MODELS,
+			});
+			strataOk = true;
+		} catch {
+			// fail-open: provider simply absent
+		}
+		vllmRegistered = ok;
+		strataRegistered = strataOk;
 		// Settings.json maintenance runs even if registration failed: the
 		// settings fixes are independent, and a broken provider registration
 		// must not mask a stale default or missing reserves. (It will re-run
@@ -384,16 +427,24 @@ export const modelsFeature = {
 				}
 			});
 		}
-		return ok;
+		return ok || strataOk;
 	},
 	disable(pi: ExtensionAPI): boolean {
-		if (registered) {
+		if (vllmRegistered) {
 			try {
 				pi.unregisterProvider(VLLM_PROVIDER);
 			} catch {
 				/* already gone */
 			}
-			registered = false;
+			vllmRegistered = false;
+		}
+		if (strataRegistered) {
+			try {
+				pi.unregisterProvider(STRATA_PROVIDER);
+			} catch {
+				/* already gone */
+			}
+			strataRegistered = false;
 		}
 		try {
 			clearBundledDefault(); // the provider goes away; don't leave a dangling default
@@ -404,6 +455,6 @@ export const modelsFeature = {
 		return true;
 	},
 	attached(): boolean {
-		return registered;
+		return vllmRegistered || strataRegistered;
 	},
 };
